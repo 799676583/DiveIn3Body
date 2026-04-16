@@ -1,2 +1,52 @@
-# DiveIn3Body
-This is a 3body simulator with designed interface. You can use it as screensaver. 
+# Three Body Screensaver
+
+一个 PySide6 全屏三体屏保模拟器。
+
+当前版本：`v2.0.0`
+
+## 运行
+
+```powershell
+pip install -r requirements.txt
+python .\three_body_screensaver.py
+```
+
+旧版桌面窗口入口仍保留在 `three_body_pyside.py`。
+
+## 打包
+
+生成 Windows 单文件版本：
+
+```powershell
+python -m PyInstaller --noconfirm --clean --onefile --windowed --name ThreeBodyScreensaver-v2.0.0 --icon .\assets\three_body_v2_icon.ico --version-file version_info.txt three_body_screensaver.py
+```
+
+打包完成后入口为：
+
+```powershell
+.\dist\ThreeBodyScreensaver-v2.0.0.exe
+```
+
+## 功能
+
+- 全屏屏保式画面，`Esc` 缩小为普通窗口，`Q` 退出，`F11` 切换全屏，双击画面回到全屏；鼠标靠左唤出设置面板，离开后自动滑入隐藏。
+- 缩小后的普通窗口使用玻璃风格自绘标题栏，并保留右上角最小化、最大化和关闭按钮。
+- 模拟坐标会锁定活跃天体的总质心，轨迹画布在任意窗口比例下都保持 x/y 单位长度一致。
+- 恒星运动画布占满整个窗口，轨迹画面无标题、网格和轴线，并使用 OpenGL 绘制长尾迹。
+- 设置面板为圆角半透明玻璃浮层，可收缩展开。
+- 恒星数量可从 2 颗增删到 10 颗，每颗恒星都有独立的位置、速度、质量、删除和随机按钮。
+- 单颗恒星的随机按钮只改变该恒星参数，不会立刻重启；`应用 / 重启` 才使用当前参数重新开始。
+- 总随机刷新会保留当前恒星数量，只随机每颗恒星的新参数并立即重启。
+- 随机初值使用更稳定的环绕分布；内部物理步长会自动限制在约 0.004 以内，并限制极端加速度和速度峰值以减少撞飞。
+- 默认模拟参数为步长 0.008、每帧 1、尾迹 10000、碰撞 0.02、交互 9。
+- 尾迹长度范围为 5-10000，绘制保持细发光线条并交给 GPU 顶点数组处理，降低多星体长尾迹时的 CPU 压力。
+- 模拟控制支持步长、每帧计算步数、尾迹长度、碰撞距离、交互距离，并提供恢复默认值按钮。
+- 预设菜单只保留三组内置预设：经典 8 字、拉格朗日三角、欧拉共线。
+- 当前参数可保存为自定义预设，自定义预设可以修改和删除；预设菜单最多显示 20 条，超过后可滚动。
+- 自定义预设保存在 `%APPDATA%\ThreeBodyScreensaver\saved_presets.json`。
+- 碰撞会触发短促柔和的全屏闪光，并移除发生碰撞的恒星；当仅剩一颗或没有恒星时进入结束流程。
+- 系统会周期性判断所有星对未来是否还可能进入交互范围；当所有交汇都不再可能时进入结束流程。
+- 若仅剩两颗恒星且形成稳定双星系统，保持 60 秒后进入结束流程。
+- 结束后画面约 3 秒淡出变暗，然后自动开始下一组随机恒星运动。
+
+默认参数使用经典三体 8 字轨道的归一化初值。

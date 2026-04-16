@@ -1,0 +1,28 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build artifacts
+build/
+dist/
+*.spec
+!ThreeBodyScreensaver-v2.0.0.spec
+
+# Local backups and generated checks
+backups/
+github_upload/
+assets/*.iconcheck.png
+assets/three_body_v2_icon_*.png
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
