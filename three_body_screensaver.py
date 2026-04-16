@@ -88,7 +88,7 @@ from PySide6.QtWidgets import (
 )
 
 
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.0.1"
 G = 1.0
 SOFTENING = 0.09
 FRAME_MS = 20
@@ -137,6 +137,41 @@ BODY_COLORS = (
     "#ffdf7e",
 )
 
+SPACE_PALETTE = (
+    "#fff8d6",
+    "#ffe9a3",
+    "#ffd166",
+    "#ffb86b",
+    "#ff8f70",
+    "#ff596d",
+    "#ff6fae",
+    "#f783ff",
+    "#d7a7ff",
+    "#b794ff",
+    "#8cb4ff",
+    "#6ea8ff",
+    "#6fe7ff",
+    "#48e0cf",
+    "#5eead4",
+    "#7ee081",
+    "#b5f48a",
+    "#d8ff9a",
+    "#ffffff",
+    "#dff7ff",
+    "#b8e7ff",
+    "#a8c7ff",
+    "#c6a7ff",
+    "#ffc3d8",
+    "#ff9f5a",
+    "#ffdf7e",
+    "#a8ffe6",
+    "#9ef7ff",
+    "#a0ffbd",
+    "#f5f3c4",
+    "#e7dcff",
+    "#ffd9a8",
+)
+
 
 FIGURE_EIGHT_POSITIONS = np.array(
     [[-0.97000436, 0.24308753, 0.0], [0.97000436, -0.24308753, 0.0], [0.0, 0.0, 0.0]],
@@ -165,6 +200,7 @@ class BodyState:
     angle: float
     speed: float
     mass: float
+    color: Optional[str] = None
 
     def velocity(self) -> Tuple[float, float]:
         theta = math.radians(self.angle)
@@ -175,6 +211,15 @@ def qcolor(hex_color: str, alpha: int = 255) -> QColor:
     color = QColor(hex_color)
     color.setAlpha(alpha)
     return color
+
+
+def normalized_color(color: object) -> Optional[str]:
+    if not isinstance(color, str):
+        return None
+    q = QColor(color)
+    if not q.isValid():
+        return None
+    return q.name()
 
 
 def state_from_xy_velocity(x: float, y: float, vx: float, vy: float, mass: float = 1.0) -> BodyState:
@@ -237,8 +282,11 @@ def builtin_presets() -> Dict[str, Dict[str, object]]:
     }
 
 
-def body_to_dict(body: BodyState) -> Dict[str, float]:
-    return {"x": body.x, "y": body.y, "angle": body.angle, "speed": body.speed, "mass": body.mass}
+def body_to_dict(body: BodyState) -> Dict[str, object]:
+    data: Dict[str, object] = {"x": body.x, "y": body.y, "angle": body.angle, "speed": body.speed, "mass": body.mass}
+    if body.color:
+        data["color"] = body.color
+    return data
 
 
 def body_from_dict(raw: Dict[str, object]) -> BodyState:
@@ -248,6 +296,7 @@ def body_from_dict(raw: Dict[str, object]) -> BodyState:
         angle=float(raw.get("angle", 0.0)) % 360.0,
         speed=max(0.0, float(raw.get("speed", 0.8))),
         mass=max(0.05, float(raw.get("mass", 1.0))),
+        color=normalized_color(raw.get("color")),
     )
 
 
@@ -275,6 +324,21 @@ class GlassFrame(QFrame):
         self.layout.setSpacing(10)
 
 
+class LockableParameterLabel(QLabel):
+    doubleClicked = Signal()
+
+    def __init__(self, text: str, parent: Optional[QWidget] = None) -> None:
+        super().__init__(text, parent)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.LeftButton:
+            self.doubleClicked.emit()
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
+
+
 class ParameterControl(QWidget):
     changed = Signal()
 
@@ -282,8 +346,10 @@ class ParameterControl(QWidget):
         super().__init__(parent)
         self.spec = spec
         self._updating = False
-        self.label = QLabel(spec.label)
+        self._locked = False
+        self.label = LockableParameterLabel(spec.label)
         self.label.setFixedWidth(label_width)
+        self.label.setToolTip("双击锁定/解锁；锁定后随机时保持不变")
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setRange(0, self._steps())
         self.entry = QLineEdit()
@@ -298,10 +364,22 @@ class ParameterControl(QWidget):
 
         self.slider.valueChanged.connect(self._slider_changed)
         self.entry.editingFinished.connect(self._entry_changed)
+        self.label.doubleClicked.connect(self.toggle_locked)
+        self._update_lock_style()
         self.set_value(spec.default, emit=False)
 
     def value(self) -> float:
         return self.spec.minimum + self.slider.value() * self.spec.resolution
+
+    def is_locked(self) -> bool:
+        return self._locked
+
+    def set_locked(self, locked: bool) -> None:
+        self._locked = locked
+        self._update_lock_style()
+
+    def toggle_locked(self) -> None:
+        self.set_locked(not self._locked)
 
     def set_value(self, value: float, emit: bool = True) -> None:
         if self.spec.positive and value <= 0:
@@ -341,6 +419,114 @@ class ParameterControl(QWidget):
             return
         self.set_value(value)
 
+    def _update_lock_style(self) -> None:
+        if self._locked:
+            self.label.setStyleSheet(
+                f"""
+                color: {ACCENT};
+                background: rgba(94, 234, 212, 0.14);
+                border: 1px solid rgba(94, 234, 212, 0.42);
+                border-radius: 6px;
+                padding-left: 4px;
+                """
+            )
+            self.label.setToolTip("已锁定：随机时保持不变。双击解锁")
+        else:
+            self.label.setStyleSheet("color: rgba(238, 244, 255, 0.86); background: transparent; border: 0; padding-left: 0;")
+            self.label.setToolTip("双击锁定；锁定后随机时保持不变")
+
+
+class SpaceColorPopup(QFrame):
+    colorSelected = Signal(str)
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent, Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
+        self.setObjectName("spaceColorPopup")
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self._buttons: Dict[str, QPushButton] = {}
+        self.setStyleSheet(
+            f"""
+            QFrame#spaceColorPopup {{
+                background: rgba(8, 14, 26, 0.98);
+                border: 1px solid rgba(94, 234, 212, 0.25);
+                border-radius: 14px;
+            }}
+            QLabel#paletteTitle {{
+                color: {TEXT};
+                font-size: 10pt;
+                font-weight: 700;
+            }}
+            QLabel#paletteHint {{
+                color: rgba(164, 175, 196, 0.82);
+                font-size: 8pt;
+            }}
+            """
+        )
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(28)
+        shadow.setOffset(0, 12)
+        shadow.setColor(QColor(0, 0, 0, 150))
+        self.setGraphicsEffect(shadow)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 10, 12, 12)
+        layout.setSpacing(8)
+
+        title = QLabel("星光色")
+        title.setObjectName("paletteTitle")
+        hint = QLabel("点击色块应用")
+        hint.setObjectName("paletteHint")
+        layout.addWidget(title)
+        layout.addWidget(hint)
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(7)
+        grid.setVerticalSpacing(7)
+        for index, color in enumerate(SPACE_PALETTE):
+            button = QPushButton()
+            button.setFixedSize(25, 25)
+            button.setCursor(Qt.PointingHandCursor)
+            button.setFocusPolicy(Qt.NoFocus)
+            button.clicked.connect(lambda _checked=False, value=color: self._select(value))
+            self._buttons[color] = button
+            grid.addWidget(button, index // 8, index % 8)
+        layout.addLayout(grid)
+        self.set_current_color(SPACE_PALETTE[0])
+
+    def show_for(self, anchor: QWidget, current_color: str) -> None:
+        self.set_current_color(current_color)
+        self.adjustSize()
+        point = anchor.mapToGlobal(anchor.rect().bottomLeft())
+        self.move(point.x() - 4, point.y() + 8)
+        self.show()
+
+    def set_current_color(self, current_color: str) -> None:
+        current = normalized_color(current_color)
+        for color, button in self._buttons.items():
+            selected = normalized_color(color) == current
+            button.setStyleSheet(self._button_style(color, selected))
+
+    def _button_style(self, color: str, selected: bool) -> str:
+        border = "2px solid rgba(255, 255, 255, 0.96)" if selected else "1px solid rgba(255, 255, 255, 0.32)"
+        size_adjust = "margin: 0px;" if selected else "margin: 1px;"
+        return (
+            "QPushButton {"
+            f"background: {color};"
+            f"border: {border};"
+            "border-radius: 7px;"
+            f"{size_adjust}"
+            "}"
+            "QPushButton:hover {"
+            "border: 2px solid rgba(255, 255, 255, 0.90);"
+            "margin: 0px;"
+            "}"
+        )
+
+    def _select(self, color: str) -> None:
+        self.colorSelected.emit(color)
+        self.hide()
+
 
 class VelocityDial(QWidget):
     angleChanged = Signal(float)
@@ -354,6 +540,10 @@ class VelocityDial(QWidget):
 
     def set_angle(self, angle: float) -> None:
         self.angle = angle % 360.0
+        self.update()
+
+    def set_color(self, color: str) -> None:
+        self.color = color
         self.update()
 
     def paintEvent(self, _event) -> None:
@@ -446,6 +636,9 @@ class VelocityControl(QWidget):
         self.dial.set_angle(self.angle())
         self.changed.emit()
 
+    def set_color(self, color: str) -> None:
+        self.dial.set_color(color)
+
 
 class BodyControl(GlassFrame):
     changed = Signal()
@@ -455,19 +648,27 @@ class BodyControl(GlassFrame):
         super().__init__(radius=20, padding=12, parent=parent)
         self.index = index
         self.random_count = 3
-        self.color = color
+        self.color = normalized_color(state.color) or color
         header = QHBoxLayout()
         self.title = QLabel(f"恒星 {index + 1}")
         self.title.setStyleSheet("font-size: 12pt; font-weight: 700;")
+        self.color_button = QPushButton()
+        self.color_button.setFixedSize(18, 18)
+        self.color_button.setCursor(Qt.PointingHandCursor)
+        self.color_button.setToolTip("点击选择星光色")
+        self.color_popup = SpaceColorPopup(self)
+        self.color_popup.colorSelected.connect(lambda value: self.set_color(value, emit=True))
         self.random_button = QPushButton("随机")
         self.delete_button = QPushButton("删除")
         self.random_button.setFixedWidth(56)
         self.delete_button.setFixedWidth(56)
         header.addWidget(self.title)
+        header.addWidget(self.color_button)
         header.addStretch(1)
         header.addWidget(self.random_button)
         header.addWidget(self.delete_button)
         self.layout.addLayout(header)
+        self._sync_color_button()
 
         grid = QGridLayout()
         grid.setHorizontalSpacing(10)
@@ -487,6 +688,7 @@ class BodyControl(GlassFrame):
 
         for control in (self.x_control, self.y_control, self.mass_control, self.velocity_control):
             control.changed.connect(self.changed.emit)
+        self.color_button.clicked.connect(self._choose_color)
         self.random_button.clicked.connect(self.randomize_without_restart)
         self.delete_button.clicked.connect(lambda: self.deleteRequested.emit(self))
         self.set_state(state, emit=False)
@@ -505,9 +707,13 @@ class BodyControl(GlassFrame):
             angle=self.velocity_control.angle(),
             speed=self.velocity_control.speed(),
             mass=self.mass_control.value(),
+            color=self.color,
         )
 
     def set_state(self, state: BodyState, emit: bool = True) -> None:
+        color = normalized_color(state.color)
+        if color:
+            self.set_color(color, emit=False)
         self.x_control.set_value(state.x, emit=False)
         self.y_control.set_value(state.y, emit=False)
         self.mass_control.set_value(state.mass, emit=False)
@@ -515,8 +721,49 @@ class BodyControl(GlassFrame):
         if emit:
             self.changed.emit()
 
+    def set_color(self, color: str, emit: bool = True) -> None:
+        parsed = normalized_color(color)
+        if parsed is None:
+            return
+        self.color = parsed
+        self.velocity_control.set_color(parsed)
+        self._sync_color_button()
+        if emit:
+            self.changed.emit()
+
+    def _sync_color_button(self) -> None:
+        self.color_button.setStyleSheet(
+            f"""
+            QPushButton {{
+                background: {self.color};
+                border: 1px solid rgba(255, 255, 255, 0.72);
+                border-radius: 5px;
+            }}
+            QPushButton:hover {{
+                border: 2px solid rgba(255, 255, 255, 0.96);
+            }}
+            """
+        )
+
+    def _choose_color(self) -> None:
+        self.color_popup.show_for(self.color_button, self.color)
+
+    def _state_with_locked_parameters(self, random_state: BodyState) -> BodyState:
+        current = self.state()
+        return BodyState(
+            x=current.x if self.x_control.is_locked() else random_state.x,
+            y=current.y if self.y_control.is_locked() else random_state.y,
+            angle=current.angle if self.velocity_control.angle_control.is_locked() else random_state.angle,
+            speed=current.speed if self.velocity_control.speed_control.is_locked() else random_state.speed,
+            mass=current.mass if self.mass_control.is_locked() else random_state.mass,
+            color=self.color,
+        )
+
+    def randomize_from_state(self, random_state: BodyState, emit: bool = True) -> None:
+        self.set_state(self._state_with_locked_parameters(random_state), emit=emit)
+
     def randomize_without_restart(self) -> None:
-        self.set_state(random_body_state(self.index, self.random_count), emit=True)
+        self.randomize_from_state(random_body_state(self.index, self.random_count), emit=True)
 
 
 class TrajectoryCanvas(QOpenGLWidget):
@@ -527,6 +774,7 @@ class TrajectoryCanvas(QOpenGLWidget):
         self.positions = np.zeros((0, 3), dtype=float)
         self.tails: List[deque[np.ndarray]] = []
         self.alive: Set[int] = set()
+        self.body_colors: List[str] = []
         self.fade_progress = 0.0
         self.collision_flash = 0.0
         self.star_texture: Optional[int] = None
@@ -537,12 +785,14 @@ class TrajectoryCanvas(QOpenGLWidget):
         positions: np.ndarray,
         tails: List[deque[np.ndarray]],
         alive: Set[int],
+        body_colors: List[str],
         fade_progress: float,
         collision_flash: float,
     ) -> None:
         self.positions = positions.copy()
         self.tails = tails
         self.alive = set(alive)
+        self.body_colors = list(body_colors)
         self.fade_progress = max(0.0, min(1.0, fade_progress))
         self.collision_flash = max(0.0, min(1.0, collision_flash))
         self.update()
@@ -581,10 +831,10 @@ class TrajectoryCanvas(QOpenGLWidget):
             for index in sorted(self.alive):
                 xy = sampled_tails.get(index)
                 if xy is not None:
-                    self._draw_tail_gl(xy, BODY_COLORS[index % len(BODY_COLORS)], center, scale, rect)
+                    self._draw_tail_gl(xy, self._body_color(index), center, scale, rect)
             for index in sorted(self.alive):
                 if index < len(self.positions):
-                    self._draw_star_gl(to_ndc(self.positions[index, :2]), BODY_COLORS[index % len(BODY_COLORS)])
+                    self._draw_star_gl(to_ndc(self.positions[index, :2]), self._body_color(index))
 
         if self.collision_flash > 0.0:
             self._draw_overlay_gl((1.0, 0.96, 0.82), 0.62 * self.collision_flash)
@@ -733,6 +983,13 @@ class TrajectoryCanvas(QOpenGLWidget):
     def _rgb(self, color: str) -> Tuple[float, float, float]:
         q = QColor(color)
         return q.redF(), q.greenF(), q.blueF()
+
+    def _body_color(self, index: int) -> str:
+        if 0 <= index < len(self.body_colors):
+            color = normalized_color(self.body_colors[index])
+            if color:
+                return color
+        return BODY_COLORS[index % len(BODY_COLORS)]
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.LeftButton:
@@ -1543,7 +1800,12 @@ class ScreensaverWindow(QWidget):
 
     def _randomize_all_and_restart(self) -> None:
         count = max(2, min(10, len(self.body_controls) or 3))
-        self._set_body_states(random_body_states(count))
+        random_states = random_body_states(count)
+        if len(self.body_controls) == count:
+            for control, state in zip(self.body_controls, random_states):
+                control.randomize_from_state(state, emit=False)
+        else:
+            self._set_body_states(random_states)
         self._restart_from_controls(clear_dirty=True)
 
     def _mark_dirty(self) -> None:
@@ -1838,7 +2100,8 @@ class ScreensaverWindow(QWidget):
         return max(0.0, math.cos(t * math.pi / 2.0) ** 2.2)
 
     def _update_canvas(self) -> None:
-        self.canvas.set_state(self.positions, self.tails, self.alive, self._fade_progress(), self._collision_flash_progress())
+        colors = [control.color for control in self.body_controls]
+        self.canvas.set_state(self.positions, self.tails, self.alive, colors, self._fade_progress(), self._collision_flash_progress())
 
     def _update_status(self) -> None:
         if self.ending:

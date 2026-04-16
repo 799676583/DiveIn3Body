@@ -13,6 +13,7 @@ build/
 dist/
 *.spec
 !ThreeBodyScreensaver-v2.0.0.spec
+!ThreeBodyScreensaver-v2.0.1.spec
 
 # Local backups and generated checks
 backups/
@@ -25,4 +26,3 @@ assets/three_body_v2_icon_*.png
 Thumbs.db
 .idea/
 .vscode/
-
