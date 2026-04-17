@@ -1,14 +1,14 @@
-# Three Body Screensaver
+# AstralWeaver
 
-一个 PySide6 全屏三体屏保模拟器。
+一个 PySide6 全屏轨道屏保模拟器。
 
-当前版本：`v2.0.1`
+当前版本：`v2.2.1`
 
 ## 运行
 
 ```powershell
 pip install -r requirements.txt
-python .\three_body_screensaver.py
+python .\astral_weaver.py
 ```
 
 旧版桌面窗口入口仍保留在 `three_body_pyside.py`。
@@ -18,13 +18,13 @@ python .\three_body_screensaver.py
 生成 Windows 单文件版本：
 
 ```powershell
-python -m PyInstaller --noconfirm --clean --onefile --windowed --name ThreeBodyScreensaver-v2.0.1 --icon .\assets\three_body_v2_icon.ico --version-file version_info.txt three_body_screensaver.py
+python -m PyInstaller --noconfirm --clean --onefile --windowed --name AstralWeaver-v2.2.1 --icon .\assets\three_body_v2_icon.ico --version-file version_info.txt astral_weaver.py
 ```
 
 打包完成后入口为：
 
 ```powershell
-.\dist\ThreeBodyScreensaver-v2.0.1.exe
+.\dist\AstralWeaver-v2.2.1.exe
 ```
 
 ## 使用
@@ -36,5 +36,6 @@ python -m PyInstaller --noconfirm --clean --onefile --windowed --name ThreeBodyS
 - 单颗恒星的随机按钮只改变该恒星参数，不会立刻重启模拟；点击 `应用 / 重启` 后才会使用当前参数重新开始。
 - `随机刷新` 会保留当前恒星数量，并立即生成一组新的随机参数开始模拟。
 - 预设菜单可选择 `经典 8 字`、`拉格朗日三角` 和 `欧拉共线`；也可以保存当前参数为自定义预设，并在之后修改或删除。
-- 模拟控制里可以调整步长、每帧计算步数、尾迹长度、碰撞距离和交互距离；`恢复模拟默认值` 会把这些参数恢复到默认设置。
+- 碰撞判定默认关闭；需要时双击 `碰撞` 参数名启用，再用碰撞距离控制判定范围。
+- 模拟控制里可以调整步长、每帧计算步数、尾迹长度和交互距离；`恢复模拟默认值` 会把这些参数恢复到默认设置。
 - 模拟结束后画面会淡出，并自动开始下一组随机运动。

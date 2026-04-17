@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['three_body_screensaver.py'],
+    ['astral_weaver.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='ThreeBodyScreensaver-v2.0.0',
+    name='AstralWeaver-v2.2.1',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

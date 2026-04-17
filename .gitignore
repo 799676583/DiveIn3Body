@@ -12,8 +12,7 @@ env/
 build/
 dist/
 *.spec
-!ThreeBodyScreensaver-v2.0.0.spec
-!ThreeBodyScreensaver-v2.0.1.spec
+!AstralWeaver-v2.2.1.spec
 
 # Local backups and generated checks
 backups/
